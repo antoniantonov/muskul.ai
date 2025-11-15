@@ -113,8 +113,8 @@ As a user, I want my activity data to be automatically enriched with weather, ai
 ### Key Entities
 
 - **User**: Represents a platform user; attributes: id, name, email, auth method(s), profile, privacy settings, connected accounts.
-- **FitnessProviderAccount**: Represents a linked fitness data provider; attributes: provider name, user id, access tokens, refresh tokens, sync status, last sync time.
-- **ActivityRecord**: Represents a single activity or workout; attributes: user id, provider, type, start/end time, metrics (heart rate, calories, distance, steps, sleep, GPS, altitude, HRV, resting HR, respiratory rate, skin temperature, blood oxygen, etc.), raw data, notes.
+- **ProviderAccount**: Represents a linked fitness data provider; attributes: provider name, user id, access tokens, refresh tokens, sync status, last sync time.
+- **Activity**: Represents a single activity or workout; attributes: user id, provider, type, start/end time, metrics (heart rate, calories, distance, steps, sleep, GPS, altitude, HRV, resting HR, respiratory rate, skin temperature, blood oxygen, etc.), raw data, notes.
 - **Workout**: Represents structured exercise data; attributes: activity id, type, duration, intensity, exercises performed, sets, reps, weights, notes.
 - **SupplementalData**: Represents enrichment data; attributes: activity id, weather (temp, humidity, air quality), altitude, source, timestamp.
 
