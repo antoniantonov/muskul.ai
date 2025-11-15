@@ -109,7 +109,9 @@
 
 ### Measurable Outcomes
 
-- **SC-001**: [Measurable metric, e.g., "Users can complete account creation in under 2 minutes"]
-- **SC-002**: [Measurable metric, e.g., "System handles 1000 concurrent users without degradation"]
-- **SC-003**: [User satisfaction metric, e.g., "90% of users successfully complete primary task on first attempt"]
-- **SC-004**: [Business metric, e.g., "Reduce support tickets related to [X] by 50%"]
+- **SC-001**: [Primary user task completion time < X seconds (UX consistency)]
+- **SC-002**: [Performance budget: p95 latency < Y ms / memory footprint < Z MB]
+- **SC-003**: [Accessibility pass rate: 100% of pages/components meet contrast & labeling requirements]
+- **SC-004**: [Coverage: Overall ≥80%, core domain ≥90% for this feature]  
+- **SC-005**: [User satisfaction metric, e.g., "90% first-attempt success on primary task"]
+- **SC-006**: [Business metric, e.g., "Reduce support tickets related to [X] by 50%"]

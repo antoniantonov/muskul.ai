@@ -31,7 +31,16 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+The following MUST be satisfied per `constitution.md` prior to advancing:
+
+1. Code Quality: Lint passes (0 errors); static analysis shows no critical/high issues; proposed complexity exceptions documented in Complexity Tracking table.
+2. Testing Readiness: Fail-first tests defined for each user story (unit + contract + integration where applicable). Coverage targets declared (overall ≥80%, core domain ≥90%).
+3. UX Consistency: Design tokens selected (link or file path); accessibility acceptance criteria listed (contrast, labels, ARIA roles) for user-facing components.
+4. Performance Budgets: Explicit p95/p99 latency, memory, throughput, or frame rate budgets documented below and tied to Success Criteria.
+5. Observability & Logging (Non-Functional Standards): Critical path metrics identified; structured logging plan (keys: trace_id, user_id (if applicable), latency_ms).
+6. Security & Config: No secrets in plan; input validation approach stated; timeout strategy for external I/O.
+7. Versioning Impact: Any potential breaking contract change flagged with intended semantic version increment.
+8. Documentation Sync: Spec contains user stories with independent tests; tasks template will reflect story isolation.
 
 ## Project Structure
 
