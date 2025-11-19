@@ -74,6 +74,7 @@ Location: https://muskul.ai/dashboard?provider=garmin&status=error&error=access_
 - Encrypts tokens with AES-256-GCM before storing in database
 - Creates `ProviderAccount` record with `sync_enabled = TRUE`
 - Schedules initial sync job (background task)
+- **API Documentation**: Generate OpenAPI/Swagger specification for this endpoint. Ensure the implementation matches the Swagger schema exactly (request/response types, validation rules, error codes).
 
 ---
 

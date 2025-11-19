@@ -9,7 +9,7 @@
 ## Endpoint
 
 ```
-POST /ai-agent/api/v1/parse-note
+POST /api/v1/agent/parse
 ```
 
 **Purpose**: Parse unstructured user notes and extract structured exercise data using AI/LLM.
@@ -50,20 +50,23 @@ X-Request-ID: <trace_id>
 {
   "exercises": [
     {
-      "name": "squat",
-      "sets": 5,
-      "reps": 10,
-      "weightLbs": 135,
-      "weightKg": 61.2
+        "type": "strength",
+        "name": "squat",
+        "sets": 5,
+        "reps": 10,
+        "weight": 135,
+        "unit": "lbs"
     },
     {
-      "name": "deadlift",
-      "sets": 3,
-      "reps": 8,
-      "weightLbs": 225,
-      "weightKg": 102.1
+        "type": "strength",
+        "name": "deadlift",
+        "sets": 3,
+        "reps": 8,
+        "weight": 225,
+        "unit": "lbs"
     }
   ],
+  "description": "",
   "intensity": "moderate",
   "duration_minutes": null,
   "notes": "Felt strong today!",
@@ -73,23 +76,41 @@ X-Request-ID: <trace_id>
 
 **Fields:**
 - `exercises`: Array of extracted exercise data
+  - `type`: Exercise type (e.g., "strength", "cardio", nullable)
   - `name`: Exercise name (normalized, e.g., "squat", "bench_press")
   - `sets`: Number of sets (integer, nullable)
   - `reps`: Number of repetitions per set (integer, nullable)
-  - `weightLbs`: Weight in pounds (float, nullable)
-  - `weightKg`: Weight in kilograms (float, nullable, auto-converted from lbs)
+  - `weight`: Weight (float, nullable)
+  - `unit`: Unit of weight ("lbs", "kg", nullable)
+- `description`: Optional description or notes about the exercise
 - `intensity`: Perceived intensity ("low", "moderate", "high", "vigorous", null)
 - `duration_minutes`: Total workout duration if mentioned (integer, nullable)
 - `notes`: Remaining text not parsed as structured data
 - `confidence`: AI confidence score (0.0 - 1.0, where >0.8 is high confidence)
 
-### Success (200 OK) - No Structured Data Found
+### Success (200 OK) - Different type of exercise
+```json
+{
+  "exercises": [
+    {
+        "type": "cardio",
+        "name": "jogging"
+    }
+  ],
+  "intensity": "moderate",
+  "duration_minutes": null,
+  "notes": "Just a casual jogging in the park at medium intensity",
+  "confidence": 0.5
+}
+```
+
+### Success (200 OK) - No defined exercise structure
 ```json
 {
   "exercises": [],
   "intensity": null,
   "duration_minutes": null,
-  "notes": "Just a casual walk in the park",
+  "notes": "Light stretching only",
   "confidence": 0.5
 }
 ```
@@ -137,6 +158,10 @@ X-Request-ID: <trace_id>
 - **LLM Provider**: OpenAI GPT-4, Anthropic Claude, or Azure OpenAI Service
 - **Prompt Engineering**: Structured prompt with few-shot examples to extract exercise data
 - **Fallback**: If LLM fails, return empty exercises array (graceful degradation)
+- **API Documentation**: Generate OpenAPI/Swagger specification for this endpoint. Ensure the implementation matches the Swagger schema exactly (request/response types, validation rules, error codes).
+- **Logging and Monitoring**: Log request/response times, tracking IDs, errors, logs in Open Telemetry format. These will be scraped by Prometheus and visualized in Grafana.
+- **Tracing**: Use distributed tracing (e.g., OpenTelemetry) to trace requests from main backend to AI service and LLM calls
+- **Input and Output storage**: Store raw input, the parsed results in Mongo DB for auditing and future model training.
 
 ### Example Prompt (OpenAI GPT-4)
 ```text

@@ -28,20 +28,18 @@ Authorization: Bearer <jwt_token>
 ?start=2024-01-01T00:00:00Z
 &end=2024-01-31T23:59:59Z
 &activity_type=running,cycling
-&provider=garmin
+&user_query=strong,morning
 &page=1
 &per_page=50
-&include_duplicates=false
 ```
 
 **All parameters are optional:**
 - `start`: ISO 8601 timestamp (default: 30 days ago)
 - `end`: ISO 8601 timestamp (default: now)
 - `activity_type`: Comma-separated list (default: all types)
-- `provider`: Filter by specific provider (default: all providers)
+- `user_query`: Search terms to match against notes and exercise metadata (comma-separated)
 - `page`: Page number for pagination (default: 1)
 - `per_page`: Items per page (default: 50, max: 100)
-- `include_duplicates`: Include duplicate activities (default: false)
 
 ---
 
@@ -98,7 +96,7 @@ Authorization: Bearer <jwt_token>
       "start": "2024-01-01T00:00:00Z",
       "end": "2024-01-31T23:59:59Z",
       "activityType": ["running", "cycling"],
-      "includeDuplicates": false
+      "userQuery": ["strong", "morning"]
     }
   }
 }
@@ -134,7 +132,7 @@ Authorization: Bearer <jwt_token>
 
 ## Caching Strategy
 
-- Cache key: `dashboard:{user_id}:{start}:{end}:{activity_type}:{provider}:{include_duplicates}:{page}`
+- Cache key: `dashboard:{user_id}:{start}:{end}:{activity_type}:{user_query}:{page}`
 - TTL: 5 minutes
 - Invalidate on: New activity imported, manual entry, data export
 
@@ -153,8 +151,11 @@ Authorization: Bearer <jwt_token>
 - Queries PostgreSQL `activities` table with LEFT JOIN on `supplemental_data`
 - Uses composite index `idx_activities_user_time` for efficient range queries
 - Filters out duplicates by default (`is_duplicate = FALSE`)
+- If `user_query` provided, match against `notes` field and parsed exercise data using PostgreSQL `ILIKE` or `ts_vector` (full-text search)
+- User query applies OR logic: match any term in notes, workout notes, parsed exercise data, or activity type
 - GPS track truncated if >1000 points (return sampled points for performance)
 - Valkey cache checked first, database query on cache miss
+- **API Documentation**: Generate OpenAPI/Swagger specification for this endpoint. Ensure the implementation matches the Swagger schema exactly (request/response types, validation rules, error codes).
 
 ---
 
@@ -164,14 +165,17 @@ Authorization: Bearer <jwt_token>
 - Date range validation
 - Pagination logic
 - Activity type filtering
+- User query parsing (comma-separated terms)
 
 ### Contract Tests
 - GET with valid params → 200 OK with activity list
+- GET with user_query → 200 OK with filtered results
 - GET with invalid date range → 400 Bad Request
 - GET without auth header → 401 Unauthorized
 
 ### Integration Tests
 - Query with filters returns correct activities
+- User query matching against notes and exercise data
 - Cache hit/miss behavior
 - GPS track sampling for large tracks
 

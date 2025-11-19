@@ -1,4 +1,4 @@
-# API Contract: Connect Fitness Provider
+# API Contract: Connect Activity Provider
 
 **Feature**: 001-platform-ingestion  
 **User Story**: US-001 (Import Data)  
@@ -27,14 +27,14 @@ Content-Type: application/json
 ### Body
 ```json
 {
-  "provider": "garmin" | "fitbit" | "strava" | "polar" | "apple_health",
+  "provider": "garmin" | "polar",
   "redirect_uri": "https://muskul.ai/auth/callback",
   "scopes": ["activities", "profile", "sleep"]
 }
 ```
 
 ### Validation Rules
-- `provider`: Required, must be one of supported providers
+- `provider`: Required, must be one of supported providers. Currently supported: garmin, polar.
 - `redirect_uri`: Required, must match registered redirect URIs
 - `scopes`: Optional, defaults to provider's default scopes
 
@@ -87,6 +87,8 @@ Content-Type: application/json
 - `state` parameter prevents CSRF attacks (validated in callback)
 - `code_challenge` is SHA-256 hash of `code_verifier` (stored server-side)
 - Authorization URL expires in 10 minutes
+- Supported providers: Garmin, Polar (others to be added later). Each provider has its own mechanism to enable 3rd party clients. The interface on our side remains consistent across providers. The implementation abstracts provider-specific details behind a common interface. Make sure we use good coding patterns to allow easy addition of new providers in the future.
+- **API Documentation**: Generate OpenAPI/Swagger specification for this endpoint. Ensure the implementation matches the Swagger schema exactly (request/response types, validation rules, error codes).
 
 ---
 

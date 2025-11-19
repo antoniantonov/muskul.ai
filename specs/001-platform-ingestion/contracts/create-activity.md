@@ -139,6 +139,7 @@ Content-Type: application/json
 - If GPS track provided, queue for enrichment (weather/altitude)
 - Duplicate detection: Check hash of (user_id + start_time + activity_type)
 - Cache invalidation: Invalidate dashboard cache for this user
+- **API Documentation**: Generate OpenAPI/Swagger specification for this endpoint. Ensure the implementation matches the Swagger schema exactly (request/response types, validation rules, error codes).
 
 ---
 

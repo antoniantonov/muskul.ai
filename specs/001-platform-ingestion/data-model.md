@@ -1,6 +1,7 @@
 # Data Model
 **Feature**: 001-platform-ingestion  
 **Generated**: 2025-11-15  
+**Updated**: 2025-11-19  
 **Purpose**: Define database schemas, entity relationships, and data flow for fitness data ingestion platform.
 
 ---
@@ -30,7 +31,9 @@
 │  provider_accounts, │   JSONB for flexible metrics
 │  activities,        │   Foreign key constraints
 │  workouts,          │
-│  supplemental_data  │
+│  supplemental_data, │
+│  import_jobs,       │
+│  sync_jobs          │
 └──────────┬──────────┘
            │ Query Layer
            ▼
@@ -259,6 +262,29 @@ db.createCollection("raw_activities", {
   },
   raw_data: { ... }, // Original provider payload (preserved)
   normalized: false // Flag for ETL processing
+}
+
+// For heart rate time-series data (1-second intervals)
+// Collection: heart_rate_data (time-series collection)
+db.createCollection("heart_rate_data", {
+   timeseries: {
+      timeField: "timestamp",
+      metaField: "metadata",
+      granularity: "seconds"
+   }
+});
+
+// Heart rate document structure
+{
+  _id: ObjectId("..."),
+  timestamp: ISODate("2024-01-15T14:30:00Z"), // Measurement timestamp (1-second precision)
+  metadata: {
+    activity_id: "a1b2c3d4-...",
+    user_id: "a1b2c3d4-...",
+    provider: "garmin"
+  },
+  hr: 145, // Heart rate (bpm)
+  respiration: 18 // Respiration rate (breaths per minute, optional)
 }
 ```
 
@@ -566,6 +592,197 @@ interface SupplementalData {
 
 ---
 
+### 6. ImportJob
+
+**Purpose**: Tracks file import processing status for async file upload operations.
+
+**PostgreSQL Schema**:
+```sql
+CREATE TABLE import_jobs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status VARCHAR(20) NOT NULL, -- 'processing', 'completed', 'failed'
+    file_name VARCHAR(255),
+    file_size_bytes BIGINT,
+    provider VARCHAR(50),
+    total_rows INT,
+    processed_rows INT,
+    activities_imported INT DEFAULT 0,
+    activities_failed INT DEFAULT 0,
+    errors JSONB, -- Array of {row, reason}
+    started_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    completed_at TIMESTAMP WITH TIME ZONE,
+    failed_at TIMESTAMP WITH TIME ZONE,
+    error_message TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_import_jobs_user_id ON import_jobs(user_id);
+CREATE INDEX idx_import_jobs_status ON import_jobs(status);
+```
+
+**Rust Model**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+struct ImportJob {
+    id: Uuid,
+    user_id: Uuid,
+    status: ImportStatus,
+    file_name: Option<String>,
+    file_size_bytes: Option<i64>,
+    provider: Option<String>,
+    total_rows: Option<i32>,
+    processed_rows: Option<i32>,
+    activities_imported: i32,
+    activities_failed: i32,
+    errors: Option<Vec<ImportError>>, // JSONB
+    started_at: DateTime<Utc>,
+    completed_at: Option<DateTime<Utc>>,
+    failed_at: Option<DateTime<Utc>>,
+    error_message: Option<String>,
+    created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[sqlx(type_name = "varchar")]
+enum ImportStatus {
+    Processing,
+    Completed,
+    Failed,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ImportError {
+    row: i32,
+    reason: String,
+}
+```
+
+**TypeScript Type**:
+```typescript
+interface ImportJob {
+  id: string;
+  userId: string;
+  status: 'processing' | 'completed' | 'failed';
+  fileName?: string;
+  fileSizeBytes?: number;
+  provider?: string;
+  totalRows?: number;
+  processedRows?: number;
+  activitiesImported: number;
+  activitiesFailed: number;
+  errors?: ImportError[];
+  startedAt: string;
+  completedAt?: string;
+  failedAt?: string;
+  errorMessage?: string;
+  createdAt: string;
+}
+
+interface ImportError {
+  row: number;
+  reason: string;
+}
+```
+
+---
+
+### 7. SyncJob
+
+**Purpose**: Tracks provider sync operations for monitoring and status reporting.
+
+**PostgreSQL Schema**:
+```sql
+CREATE TABLE sync_jobs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    provider_account_id UUID NOT NULL REFERENCES provider_accounts(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status VARCHAR(20) NOT NULL, -- 'pending', 'in_progress', 'completed', 'failed'
+    sync_type VARCHAR(20) NOT NULL, -- 'full', 'incremental'
+    activities_imported INT DEFAULT 0,
+    activities_failed INT DEFAULT 0,
+    errors JSONB, -- Array of {external_id, reason}
+    started_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    completed_at TIMESTAMP WITH TIME ZONE,
+    failed_at TIMESTAMP WITH TIME ZONE,
+    error_message TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_sync_jobs_provider_account_id ON sync_jobs(provider_account_id);
+CREATE INDEX idx_sync_jobs_user_id ON sync_jobs(user_id);
+CREATE INDEX idx_sync_jobs_status ON sync_jobs(status);
+CREATE INDEX idx_sync_jobs_started_at ON sync_jobs(started_at DESC);
+```
+
+**Rust Model**:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+struct SyncJob {
+    id: Uuid,
+    provider_account_id: Uuid,
+    user_id: Uuid,
+    status: SyncJobStatus,
+    sync_type: SyncType,
+    activities_imported: i32,
+    activities_failed: i32,
+    errors: Option<Vec<SyncError>>, // JSONB
+    started_at: DateTime<Utc>,
+    completed_at: Option<DateTime<Utc>>,
+    failed_at: Option<DateTime<Utc>>,
+    error_message: Option<String>,
+    created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[sqlx(type_name = "varchar")]
+enum SyncJobStatus {
+    Pending,
+    InProgress,
+    Completed,
+    Failed,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[sqlx(type_name = "varchar")]
+enum SyncType {
+    Full,
+    Incremental,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct SyncError {
+    external_id: String,
+    reason: String,
+}
+```
+
+**TypeScript Type**:
+```typescript
+interface SyncJob {
+  id: string;
+  providerAccountId: string;
+  userId: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'failed';
+  syncType: 'full' | 'incremental';
+  activitiesImported: number;
+  activitiesFailed: number;
+  errors?: SyncError[];
+  startedAt: string;
+  completedAt?: string;
+  failedAt?: string;
+  errorMessage?: string;
+  createdAt: string;
+}
+
+interface SyncError {
+  externalId: string;
+  reason: string;
+}
+```
+
+---
+
 ## Entity Relationships
 
 ```text
@@ -581,31 +798,40 @@ interface SupplementalData {
 │ - provider_name     │          │ - activity_type  │
 │ - access_token      │          │ - metrics (JSONB)│
 │ - sync_enabled      │          │ - gps_track      │
-└─────────────────────┘          │ - is_duplicate   │
+└──────┬──────────────┘          │ - is_duplicate   │
        │ 1                       │ - notes          │
        │                         └────────┬─────────┘
-       │ N                                │ 1
-       └────────────────────────┐         │
-                                │         │ 1
-                         ┌──────▼─────────▼───────┐
-                         │   Activity (continued) │
-                         └────────┬───────┬────────┘
-                                  │       │
-                          ┌───────┘       └────────┐
-                          │ 1                      │ 1
-                          │                        │
-                   ┌──────▼────────┐      ┌────────▼────────────┐
-                   │    Workout    │      │ SupplementalData    │
-                   │               │      │                     │
-                   │ - exercises   │      │ - weather           │
-                   │   (JSONB)     │      │ - altitude          │
-                   └───────────────┘      └─────────────────────┘
+       │ N (sync_jobs)                    │ 1
+       │                                  │
+┌──────▼────────┐                         │ 1
+│   SyncJob     │              ┌──────────▼─────────────┐
+│               │              │   Activity (continued) │
+│ - status      │              └────────┬───────┬───────┘
+│ - sync_type   │                       │       │
+└───────────────┘               ┌───────┘       └────────┐
+                                │ 1                      │ 1
+       ┌────────────────┐       │                        │
+       │   ImportJob    │┌──────▼────────┐      ┌────────▼────────────┐
+       │                ││    Workout    │      │ SupplementalData    │
+       │ - status       ││               │      │                     │
+       │ - file_name    ││ - exercises   │      │ - weather           │
+       └────────┬───────┘│   (JSONB)     │      │ - altitude          │
+                │        └───────────────┘      └─────────────────────┘
+                │ N
+                │
+         ┌──────▼───────┐
+         │     User     │
+         │  (continued) │
+         └──────────────┘
 ```
 
 **Cardinality**:
 - **User** → **ProviderAccount**: 1:N (one user, many connected providers)
 - **User** → **Activity**: 1:N (one user, many activities)
+- **User** → **ImportJob**: 1:N (one user, many file imports)
+- **User** → **SyncJob**: 1:N (one user, many sync operations across providers)
 - **ProviderAccount** → **Activity**: 1:N (one provider, many imported activities)
+- **ProviderAccount** → **SyncJob**: 1:N (one provider account, many sync operations)
 - **Activity** → **Workout**: 1:1 (optional, only for structured workouts)
 - **Activity** → **SupplementalData**: 1:1 (optional, only for activities with GPS/time)
 - **Activity** → **Activity** (duplicate_of): 1:1 (self-referential for duplicate tracking)
@@ -628,10 +854,14 @@ User → Frontend → Backend → Provider OAuth2 Endpoint
               Return success to frontend
 ```
 
-### 2. Activity Ingestion (API)
+### 2. Activity Ingestion (API - Provider Sync)
 
 ```text
-Background Sync Job → Provider API (GET /activities)
+User triggers sync → Backend creates SyncJob (status = 'pending')
+         ↓
+Background Sync Job → Update SyncJob (status = 'in_progress')
+         ↓
+   Provider API (GET /activities)
          ↓
    Store raw JSON in MongoDB raw_activities (time-series)
          ↓
@@ -645,10 +875,38 @@ Background Sync Job → Provider API (GET /activities)
          ↓
    If notes exist → Call AI service → Store parsed_notes
          ↓
+   Update SyncJob (activities_imported, status = 'completed')
+         ↓
    Queue for enrichment (mark enrichment_status = 'pending')
 ```
 
-### 3. Data Enrichment (Weather/Altitude)
+### 3. Activity Ingestion (File Upload)
+
+```text
+User uploads file → Backend creates ImportJob (status = 'processing')
+         ↓
+   Upload to temp storage (S3/local disk)
+         ↓
+   Parse file format (CSV/JSON/GPX/TCX/FIT)
+         ↓
+   Validate data schema
+         ↓
+   Store raw data in MongoDB raw_activities
+         ↓
+   Update ImportJob (processed_rows, progress)
+         ↓
+   Normalize and store in PostgreSQL activities table
+         ↓
+   Check duplicates (hash-based deduplication)
+         ↓
+   Update ImportJob (activities_imported, activities_failed)
+         ↓
+   Update ImportJob (status = 'completed' or 'failed')
+         ↓
+   Frontend polls GET /api/v1/activities/import/{importId}/status
+```
+
+### 4. Data Enrichment (Weather/Altitude)
 
 ```text
 Background Enrichment Job → Query pending activities (PostgreSQL)
@@ -662,16 +920,18 @@ Background Enrichment Job → Query pending activities (PostgreSQL)
    Update enrichment_status = 'completed' or 'failed'
 ```
 
-### 4. Dashboard Query
+### 5. Dashboard Query
 
 ```text
-Frontend → GET /api/v1/activities?start=X&end=Y
+Frontend → GET /api/v1/activities?start=X&end=Y&user_query=strong
          ↓
-   Check Valkey cache (key: dashboard:user_id:start:end)
+   Check Valkey cache (key: dashboard:user_id:start:end:user_query)
          ↓
    Cache HIT → Return cached data (p99 < 50ms)
          ↓
    Cache MISS → Query PostgreSQL with indexes
+         ↓
+   Apply user_query filter (ILIKE or ts_vector full-text search on notes)
          ↓
    Join activities + supplemental_data (LEFT JOIN)
          ↓
@@ -703,6 +963,12 @@ CREATE TABLE workouts (...);
 
 -- Step 5: Create supplemental_data table (depends on activities)
 CREATE TABLE supplemental_data (...);
+
+-- Step 6: Create import_jobs table (depends on users)
+CREATE TABLE import_jobs (...);
+
+-- Step 7: Create sync_jobs table (depends on users, provider_accounts)
+CREATE TABLE sync_jobs (...);
 ```
 
 ### Adding New Metrics (Non-Breaking)
@@ -830,6 +1096,19 @@ REFRESH MATERIALIZED VIEW daily_activity_summary;
 
 ## Conclusion
 
-This data model supports the muskul.ai platform's requirements for **flexibility** (JSONB for varying metrics), **performance** (indexes, caching, time-series collections), **scalability** (multi-tier storage, horizontal sharding), and **compliance** (soft deletes, GDPR erasure). The PostgreSQL schema enforces referential integrity while allowing schema evolution without migrations (via JSONB). MongoDB preserves raw provider data for auditing and reprocessing. Valkey caches hot data for sub-second dashboard loads.
+This data model supports the muskul.ai platform's requirements for **flexibility** (JSONB for varying metrics), **performance** (indexes, caching, time-series collections), **scalability** (multi-tier storage, horizontal sharding), and **compliance** (soft deletes, GDPR erasure). 
+
+The PostgreSQL schema enforces referential integrity while allowing schema evolution without migrations (via JSONB). Seven core entities manage the data lifecycle:
+- **User** & **ProviderAccount**: Authentication and OAuth2 connections
+- **Activity**, **Workout**, **SupplementalData**: Core fitness data with enrichment
+- **ImportJob** & **SyncJob**: Async operation tracking for file imports and provider syncs
+
+MongoDB preserves raw provider data for auditing and reprocessing, with dedicated time-series collections for activities and per-second heart rate data. Valkey caches hot data for sub-second dashboard loads.
+
+**Key Features**:
+- Import/sync job tracking with progress monitoring and error logging
+- Heart rate time-series data at 1-second granularity
+- User query search across notes and exercise metadata
+- Duplicate detection and CSV export with multiple format types (metadata, heartrate)
 
 **Next Steps**: Generate API contracts (`contracts/`) and quickstart guide (`quickstart.md`).

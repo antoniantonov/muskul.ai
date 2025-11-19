@@ -121,6 +121,7 @@ providerAccountId: UUID of the provider account to sync
 - Conflict detection: Only one sync job per provider account at a time (use distributed lock with Valkey)
 - Full sync: Retrieves all historical data (may take 5-10 minutes for providers with 1000+ activities)
 - Incremental sync: Retrieves only activities since `last_sync_at` (typically <1 minute)
+- **API Documentation**: Generate OpenAPI/Swagger specification for this endpoint. Ensure the implementation matches the Swagger schema exactly (request/response types, validation rules, error codes).
 
 ---
 
