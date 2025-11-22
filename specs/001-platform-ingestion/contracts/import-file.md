@@ -112,7 +112,7 @@ provider: "garmin" | "polar" | "generic"
 
 ## Implementation Notes
 
-- File uploaded to temporary storage (local disk or S3)
+- File uploaded to temporary storage (local disk or S3 or Storage Account if deployed to Azure)
 - Async processing: Parse file → Validate → Normalize → Store in MongoDB (raw) → ETL to PostgreSQL
 - For async processing, return 202 Accepted with `importId`. Use `importId` to keep track of the processing status in separate table in PG.
 - Supports batch import (multiple activities per file)
