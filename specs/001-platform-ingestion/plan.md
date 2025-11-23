@@ -192,6 +192,220 @@ docs/
 
 **Structure Decision**: Web application architecture with separate frontend and backend projects. Backend uses Rust for performance-critical API and data processing. Frontend is a React SPA with TypeScript. ETL jobs can use Python/Go/Scala depending on specific requirements. AI agent is a separate microservice with API contract, allowing implementation flexibility. All services are containerized for consistent deployment across Docker, Container Apps, and Kubernetes.
 
+## Implementation Multi-Agent Strategy
+
+This feature uses eight specialized agents for domain-specific implementation, ensuring production-grade code quality, security, and performance from the start:
+
+### Backend Development: Rust Agent (`@rust`)
+**File**: `.github/agents/rust.agent.md`  
+**Scope**: Core platform services in `backend/src/`, `backend/tests/`, `backend/benches/`
+
+**Responsibilities**:
+- REST API endpoints (Axum handlers, routing, middleware)
+- Data models and repositories (SQLx PostgreSQL, MongoDB driver)
+- OAuth2 provider integrations (PKCE flow, token encryption)
+- Background jobs and Service Bus subscribers (async task processing)
+- Middleware (auth, logging, tracing, rate limiting, CORS)
+- Service layer (business logic, validation, caching)
+- Configuration and infrastructure setup
+
+**Quality Standards**:
+- **Fail-first TDD**: Write tests before implementation
+- **Security**: No plaintext secrets, input validation, SQL injection prevention, AES-256-GCM encryption
+- **Performance**: p95 <200ms reads, <500ms writes, <512MB memory
+- **Coverage**: ≥80% overall, ≥90% core domain (OAuth2, ingestion, normalization)
+- **Observability**: OpenTelemetry instrumentation, structured logging (tracing crate)
+
+**Tools**: cargo (fmt, clippy, test, tarpaulin, bench, audit), SQLx, tokio, axum
+
+---
+
+### Frontend Development: TypeScript Agent (`@typescript`)
+**File**: `.github/agents/typescript.agent.md`  
+**Scope**: React/TypeScript UI in `frontend/src/`, `frontend/tests/`
+
+**Responsibilities**:
+- React components, pages, custom hooks
+- TypeScript type definitions and Zod schemas
+- Plotly.js chart components (line, scatter, heatmap, activity timeline)
+- React Query data fetching and caching
+- Tailwind CSS styling and responsive design
+- Accessibility (WCAG 2.1 AA compliance, ARIA, keyboard navigation)
+- Performance optimization (code splitting, lazy loading, memoization)
+
+**Quality Standards**:
+- **Component Tests**: React Testing Library, user-centric queries
+- **Accessibility**: No axe-core violations, color contrast ≥4.5:1, semantic HTML
+- **Performance**: FCP <1.5s, TTI <3s, CLS <0.1, Lighthouse score ≥90
+- **Type Safety**: TypeScript strict mode, no `any` types
+- **Coverage**: ≥80% overall, ≥90% critical user flows
+
+**Tools**: Vite, TypeScript, ESLint, Prettier, Vitest, React Testing Library, axe-core
+
+---
+
+### High-Concurrency Services: Go Agent (`@go`)
+**File**: `.github/agents/go.agent.md`  
+**Scope**: High-throughput workers in `backend-go/`, `cmd/`, `internal/`
+
+**Responsibilities**:
+- Background job processors (worker pools, channels)
+- Queue consumers (Azure Service Bus, message-driven)
+- High-throughput APIs (10,000 req/sec)
+- Concurrent data pipelines (fan-out, fan-in patterns)
+- Microservices (gRPC, event-driven architecture)
+
+**Quality Standards**:
+- **Simplicity**: Go idioms, clear over clever, standard library first
+- **Concurrency**: Goroutine lifecycle management, context cancellation, rate limiting
+- **Performance**: p95 <50ms, 10,000 req/sec, <256MB memory
+- **Testing**: Table-driven tests, race detector clean, ≥80% coverage
+- **Observability**: Structured logging (slog), OpenTelemetry, Prometheus metrics
+
+**Tools**: go (fmt, vet, test, bench), golangci-lint, testcontainers
+
+---
+
+### ETL & Data Processing: Python Agent (`@python`)
+**File**: `.github/agents/python.agent.md`  
+**Scope**: ETL pipelines in `etl/python/`, AI services in `ai-agent-service/`
+
+**Responsibilities**:
+- Data normalization and transformation (provider schema → normalized schema)
+- Schema mapping and validation (Pydantic models)
+- AI note parsing (LLM-based classification, feature extraction)
+- Data quality (outlier detection, deduplication, validation)
+- Batch processing (scheduled jobs, data migrations)
+- FastAPI services (async endpoints, background tasks)
+
+**Quality Standards**:
+- **Readability**: Black formatting, type hints, docstrings (Google style)
+- **Data Quality**: Pydantic validation, data cleaning, 98%+ valid records
+- **Performance**: Vectorized pandas, async ETL, 5,000 records/sec
+- **Testing**: Pytest, property-based testing (Hypothesis), ≥80% coverage
+- **Observability**: Structured logging (JSON), OpenTelemetry, error tracking
+
+**Tools**: Python 3.12, black, ruff, mypy, pytest, pandas, pydantic, FastAPI
+
+---
+
+### MongoDB Operations: MongoDB Agent (`@mongo`)
+**File**: `.github/agents/mongo.agent.md`  
+**Scope**: Document schemas in `migrations/*_mongo.js`, collections design
+
+**Responsibilities**:
+- Document schema design (embedding vs. referencing decisions)
+- Time-series collections (activity metrics, sensor data)
+- Aggregation pipelines (analytics, complex queries, transformations)
+- Index optimization (compound, geospatial, text search, partial indexes)
+- Query optimization (EXPLAIN analysis, covered queries)
+- Data modeling (flexible schemas for provider-specific data)
+
+**Quality Standards**:
+- **Schema Design**: Time-series optimization, proper embedding/referencing
+- **Indexing**: Compound indexes (ESR rule: Equality, Sort, Range)
+- **Performance**: Query latency <50ms, aggregation latency <200ms
+- **Validation**: JSON schema validation rules
+- **Documentation**: Schema diagrams, query examples, access patterns
+
+**Tools**: MongoDB 7.x, mongosh, Compass, Cosmos DB for MongoDB
+
+---
+
+### PostgreSQL Operations: PostgreSQL Agent (`@pg`)
+**File**: `.github/agents/pg.agent.md`  
+**Scope**: Relational schemas in `backend/migrations/*.sql`
+
+**Responsibilities**:
+- Schema design (normalization, constraints, relationships)
+- SQL migrations (DDL with SQLx migration tool)
+- Query optimization (EXPLAIN ANALYZE, covering indexes, CTEs)
+- Index strategy (B-tree, GIN, GiST, partial, covering indexes)
+- Data integrity (foreign keys, check constraints, triggers)
+- Performance tuning (connection pooling, prepared statements)
+
+**Quality Standards**:
+- **Normalization**: 3NF schema design, proper data types
+- **ACID Compliance**: Transaction isolation, savepoints
+- **Performance**: Query latency <50ms, connection pool (5-20)
+- **Indexing**: Covering indexes, partial indexes, index-only scans
+- **Documentation**: Schema diagrams, ER diagrams, query examples
+
+**Tools**: PostgreSQL 16+, SQLx, pg_stat monitoring, EXPLAIN ANALYZE
+
+---
+
+### Observability & Monitoring: Observability Agent (`@ot`)
+**File**: `.github/agents/ot.agent.md`  
+**Scope**: Tracing, metrics, dashboards in `**/telemetry.*`, `dashboards/*.json`, `alerts.yml`
+
+**Responsibilities**:
+- OpenTelemetry distributed tracing (span instrumentation, context propagation)
+- Prometheus metrics (counters, histograms, gauges, RED/USE metrics)
+- Grafana dashboards (visualization, alerting, SLO tracking)
+- Structured logging (JSON logs, correlation IDs, log levels)
+- Azure Application Insights integration (APM, performance monitoring)
+- SLI/SLO tracking (availability 99.9%, latency p95 <200ms, error budgets)
+
+**Quality Standards**:
+- **Comprehensive Instrumentation**: All critical paths traced and metered
+- **Structured Logging**: JSON format, correlation IDs, trace context
+- **SLO Tracking**: Error budgets, uptime monitoring, alerting
+- **Dashboard Quality**: Clear visualizations, actionable alerts
+- **Documentation**: Runbooks, troubleshooting guides, alert response
+
+**Tools**: OpenTelemetry, Prometheus, Grafana, Azure Application Insights, tracing crate
+
+---
+
+### Infrastructure as Code: Pulumi Agent (`@pulumi`)
+**File**: `.github/agents/pulumi.agent.md`  
+**Scope**: Infrastructure provisioning in `infra/**/*.py`, `.github/workflows/*-deploy.yml`
+
+**Responsibilities**:
+- Azure resource provisioning (Container Apps, PostgreSQL, Cosmos DB, Key Vault, App Insights)
+- Stack configurations (dev, staging, production environments)
+- CI/CD pipeline definitions (GitHub Actions workflows with OIDC)
+- Resource tagging and naming conventions
+- Managed identities and RBAC assignments
+- Cost optimization (environment-specific sizing, autoscaling)
+
+**Quality Standards**:
+- **Code Quality**: `ruff check`, `black`, type hints, resource naming conventions
+- **IaC Best Practices**: Idempotent resources, stack configurations, state management
+- **Security**: Managed identities, Key Vault secrets, private endpoints, RBAC, NSG rules
+- **Cost Optimization**: Environment-specific sizing, autoscaling, reserved instances
+- **CI/CD**: OIDC authentication, preview on PR, manual approval for prod, smoke tests
+
+**Tools**: Pulumi CLI, Azure CLI, Python 3.12, GitHub Actions
+
+---
+
+### Agent Coordination During `/speckit.implement`
+
+**Execution Flow**:
+1. **Task Analysis**: Parse tasks.md, detect agent markers (`[@agent]`), file paths, keywords
+2. **Dependency Resolution**: Build task dependency graph (migrations before repositories, APIs before UI)
+3. **Agent Routing**: Route each task to appropriate specialized agent
+4. **Sequential Execution**: Execute tasks in dependency order
+   - Database migrations (`@pg`, `@mongo`) → Backend services (`@rust`, `@go`, `@python`) → Frontend (`@typescript`) → Observability (`@ot`) → Infrastructure (`@pulumi`)
+5. **Parallel Execution**: Independent tasks (backend + frontend, different modules) can run concurrently
+6. **Cross-Agent Tasks**: Decompose into sequential sub-tasks
+   - Example: T109 "Create manual entry form" → T109a `[@rust]` API + T109b `[@typescript]` UI
+7. **Context Sharing**: Pass schema changes, API contracts, data models between agents
+8. **Validation**: Each agent validates task completion (tests, linting, coverage, performance)
+9. **Progress Tracking**: Mark tasks `[X]` in tasks.md as agents complete them
+10. **Final Validation**: All tasks complete, all tests pass, coverage met, benchmarks pass
+
+**Benefits**:
+- **Domain Expertise**: Each agent brings specialized knowledge of language/technology
+- **Quality Assurance**: Automated enforcement of best practices, security, performance
+- **Consistency**: All code follows same patterns within each domain
+- **Productivity**: Faster implementation with less review cycles
+- **Compliance**: Constitution principles enforced automatically
+
+**Agent Availability**: All eight agents are available. Use `@{agent}` mention or automatic routing during `/speckit.implement`.
+
 ## Complexity Tracking
 
 > **Fill ONLY if Constitution Check has violations that must be justified**

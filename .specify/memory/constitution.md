@@ -1,14 +1,17 @@
 <!--
 Sync Impact Report
-Version change: (none prior) → 1.0.0
-Modified principles: N/A (initial definition)
-Added sections: Core Principles (4), Non-Functional Standards, Development Workflow & Quality Gates, Governance
-Removed sections: Template placeholder for Principle 5 (not required per user instruction)
+Version change: 1.0.0 → 1.1.0 (MINOR - new governance rule)
+Modified principles: N/A
+Added sections: Development Workflow & Quality Gates → Agent Routing (Multi-Agent Architecture) subsection
+Removed sections: None
 Templates requiring updates:
 	.specify/templates/plan-template.md ✅ updated
 	.specify/templates/spec-template.md ✅ updated
 	.specify/templates/tasks-template.md ✅ updated
-	(No commands directory present; cannot update) ⚠ pending
+	.github/prompts/speckit.implement.prompt.md ✅ updated (Step 3)
+	specs/001-platform-ingestion/plan.md ✅ updated (Step 4)
+	specs/001-platform-ingestion/checklists/*.md ✅ created (Step 5)
+Amendment rationale: Multi-agent routing establishes specialized domain expertise as MUST requirement, ensuring production-grade quality standards (security, accessibility, performance, data integrity) enforced from implementation start across all technology domains (Rust, TypeScript, Go, Python, PostgreSQL, MongoDB, observability, infrastructure).
 Deferred TODOs: None
 -->
 
@@ -40,8 +43,43 @@ Security: Secrets MUST NOT be committed; dependency updates flagged with known C
 
 Phases: Research → Design (data-model & contracts) → Test Authoring → Implementation → Benchmark → Review → Merge. Quality Gates: (1) Constitution Check (automated script) passes; (2) All required test categories present; (3) Coverage & performance budgets satisfied; (4) Accessibility audit passes for UI changes; (5) Complexity justifications present if thresholds exceeded; (6) Documentation artifacts updated (spec, plan, tasks) before merge. Reviews MUST focus first on principle compliance; non-compliant PRs are rejected without style discussion.
 
+### Agent Routing (Multi-Agent Architecture)
+
+**MUST Requirements**:
+
+1. **Specialized Agent Delegation**: Implementation work MUST be delegated to specialized domain agents when available. Production code quality depends on domain-specific expertise:
+   - **Rust backend** (`@rust`): Security-first patterns, async/await, memory safety, SQLx query validation
+   - **TypeScript frontend** (`@typescript`): React best practices, WCAG 2.1 AA accessibility, performance optimization
+   - **Go services** (`@go`): High-concurrency patterns, goroutines, channels, simplicity
+   - **Python ETL** (`@python`): Data quality validation, Pydantic schemas, vectorized processing
+   - **PostgreSQL** (`@pg`): 3NF schema design, query optimization, ACID compliance, covering indexes
+   - **MongoDB** (`@mongo`): Document design, time-series optimization, aggregation pipelines
+   - **Observability** (`@ot`): OpenTelemetry tracing, Prometheus metrics, Grafana dashboards, SLO tracking
+   - **Infrastructure** (`@pulumi`): Azure provisioning, IaC best practices, CI/CD pipelines, security, cost optimization
+
+2. **Agent Routing Priority**: Agent selection follows strict priority order:
+   1. **Explicit marker** in tasks.md (`[@rust]`, `[@typescript]`, etc.)
+   2. **File path pattern** (`src/**/*.rs` → `@rust`, `frontend/**/*.tsx` → `@typescript`)
+   3. **Task keywords** (contains "repository", "handler" → `@rust`; contains "component", "accessibility" → `@typescript`)
+   4. **Default agent** as fallback
+
+3. **Cross-Agent Coordination**: Tasks spanning multiple domains MUST be decomposed into agent-specific sub-tasks with explicit dependencies:
+   - **Sequential**: Schema changes → backend implementation → frontend updates
+   - **Parallel**: Independent UI component + API endpoint (different features)
+   - **Coordinated**: API contract established first → backend implements → frontend consumes
+
+4. **Context Sharing**: Agents MUST share critical context for dependent tasks:
+   - Database migrations → Repository code (schema structure)
+   - Backend API contracts → Frontend clients (request/response types)
+   - Data models → All layers (shared types, validation rules)
+   - Performance budgets → All implementations (latency, throughput targets)
+
+5. **Fallback Behavior**: If specialized agent fails or is unavailable, implementation MUST fallback to default agent with explicit warning and post-implementation review requirement.
+
+**Rationale**: Multi-agent routing ensures domain-specific quality standards (security, accessibility, performance, data integrity) are enforced from the start, preventing entire classes of issues before code review. Production code quality depends on specialized knowledge that default agents cannot consistently provide.
+
 ## Governance
 
 Authority: This constitution supersedes informal practices. Amendments: Proposal PR MUST include diff summary, rationale, impact analysis on existing templates, and version bump type (MAJOR/MINOR/PATCH). Approval requires at least two maintainers and zero outstanding impact TODOs. Versioning Policy: MAJOR for principle removals/redefinitions; MINOR for new principles/sections; PATCH for clarifications only. Compliance Review: Monthly automated scans (lint, coverage, benchmark drift) + quarterly manual audit of complexity justifications and a11y baseline. Violations MUST be ticketed within 24h; unresolved critical violations block releases.
 
-**Version**: 1.0.0 | **Ratified**: 2025-11-15 | **Last Amended**: 2025-11-15
+**Version**: 1.1.0 | **Ratified**: 2025-11-15 | **Last Amended**: 2025-11-23
