@@ -1,0 +1,166 @@
+name: AI Agent Service CI
+
+on:
+  push:
+    branches: [main, develop, 001-platform-ingestion]
+    paths:
+      - 'ai-agent-service/**'
+      - '.github/workflows/ai-agent.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'ai-agent-service/**'
+      - '.github/workflows/ai-agent.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: '3.12'
+  COVERAGE_THRESHOLD: 80
+
+jobs:
+  test:
+    name: Test & Lint
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: muskul_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      mongodb:
+        image: mongo:7
+        env:
+          MONGO_INITDB_ROOT_USERNAME: mongo
+          MONGO_INITDB_ROOT_PASSWORD: mongo
+          MONGO_INITDB_DATABASE: muskul_test
+        options: >-
+          --health-cmd "mongosh --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 27017:27017
+      
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: ai-agent-service/requirements.txt
+      
+      - name: Install dependencies
+        working-directory: ai-agent-service
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pytest-asyncio flake8 black mypy
+      
+      - name: Lint with flake8
+        working-directory: ai-agent-service
+        run: |
+          # Stop the build if there are Python syntax errors or undefined names
+          flake8 src --count --select=E9,F63,F7,F82 --show-source --statistics
+          # Exit-zero treats all errors as warnings
+          flake8 src --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+      
+      - name: Check code formatting with black
+        working-directory: ai-agent-service
+        run: black --check src
+      
+      - name: Type check with mypy
+        working-directory: ai-agent-service
+        run: mypy src --ignore-missing-imports
+        continue-on-error: true
+      
+      - name: Run tests with coverage
+        working-directory: ai-agent-service
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/muskul_test
+          MONGODB_URL: mongodb://mongo:mongo@localhost:27017/muskul_test
+          REDIS_URL: redis://localhost:6379
+        run: |
+          pytest --cov=src --cov-report=xml --cov-report=term --cov-fail-under=${{ env.COVERAGE_THRESHOLD }}
+      
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./ai-agent-service/coverage.xml
+          flags: ai-agent
+          name: ai-agent-coverage
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+
+  docker:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Generate semantic version
+        id: version
+        run: |
+          DATE=$(date +%Y%m%d)
+          VERSION="1.0.${DATE}.${{ github.run_number }}"
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Generated version: ${VERSION}"
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Log in to Azure Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+      
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./ai-agent-service
+          file: ./ai-agent-service/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.ACR_LOGIN_SERVER }}/muskul-ai-agent:${{ steps.version.outputs.VERSION }}
+            ${{ secrets.ACR_LOGIN_SERVER }}/muskul-ai-agent:${{ github.ref == 'refs/heads/main' && 'latest' || github.ref_name }}
+          cache-from: type=registry,ref=${{ secrets.ACR_LOGIN_SERVER }}/muskul-ai-agent:buildcache
+          cache-to: type=registry,ref=${{ secrets.ACR_LOGIN_SERVER }}/muskul-ai-agent:buildcache,mode=max
+          labels: |
+            org.opencontainers.image.title=muskul-ai-agent
+            org.opencontainers.image.version=${{ steps.version.outputs.VERSION }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.repositoryUrl }}
+      
+      - name: Image digest
+        run: echo "Image pushed with version ${{ steps.version.outputs.VERSION }}"

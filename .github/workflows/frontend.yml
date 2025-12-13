@@ -1,0 +1,233 @@
+name: Frontend CI
+
+on:
+  push:
+    branches: [main, develop, 001-platform-ingestion]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+  COVERAGE_THRESHOLD: 80
+
+jobs:
+  build-and-test:
+    name: Build, Test & Lint
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+      
+      - name: Type check
+        working-directory: frontend
+        run: npm run type-check
+      
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+      
+      - name: Check code formatting
+        working-directory: frontend
+        run: npm run format:check
+      
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+      
+      - name: Run tests with coverage
+        working-directory: frontend
+        run: npm run test:coverage
+      
+      - name: Check coverage threshold
+        working-directory: frontend
+        run: |
+          # Extract coverage percentage from coverage report
+          COVERAGE=$(npx nyc report --reporter=text-summary | grep "Lines" | awk '{print $3}' | sed 's/%//')
+          echo "Coverage: ${COVERAGE}%"
+          if [ "$(echo "${COVERAGE} < ${{ env.COVERAGE_THRESHOLD }}" | bc)" -eq 1 ]; then
+            echo "Coverage ${COVERAGE}% is below threshold ${{ env.COVERAGE_THRESHOLD }}%"
+            exit 1
+          fi
+        continue-on-error: true
+      
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./frontend/coverage/coverage-final.json
+          flags: frontend
+          name: frontend-coverage
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+      
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend/dist
+          retention-days: 7
+
+  accessibility:
+    name: Accessibility Tests
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+      
+      - name: Install Playwright browsers
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      
+      - name: Run accessibility tests
+        working-directory: frontend
+        run: npm run test:a11y
+      
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-a11y-report
+          path: frontend/playwright-report
+          retention-days: 7
+
+  lighthouse:
+    name: Lighthouse Performance Audit
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+      
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+      
+      - name: Install Lighthouse CI
+        run: npm install -g @lhci/cli@0.13.x
+      
+      - name: Run Lighthouse CI
+        working-directory: frontend
+        run: |
+          npm run preview &
+          PREVIEW_PID=$!
+          sleep 5
+          lhci autorun --config=lighthouserc.json || true
+          kill $PREVIEW_PID
+        continue-on-error: true
+      
+      - name: Upload Lighthouse results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lighthouse-results
+          path: frontend/.lighthouseci
+          retention-days: 7
+
+  docker:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    needs: [build-and-test, accessibility, lighthouse]
+    if: github.event_name == 'push'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Check if Dockerfile exists
+        id: dockerfile_check
+        run: |
+          if [ -f "frontend/Dockerfile" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Dockerfile not found, skipping Docker build"
+          fi
+      
+      - name: Generate semantic version
+        if: steps.dockerfile_check.outputs.exists == 'true'
+        id: version
+        run: |
+          DATE=$(date +%Y%m%d)
+          VERSION="1.0.${DATE}.${{ github.run_number }}"
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Generated version: ${VERSION}"
+      
+      - name: Set up Docker Buildx
+        if: steps.dockerfile_check.outputs.exists == 'true'
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Log in to Azure Container Registry
+        if: steps.dockerfile_check.outputs.exists == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+      
+      - name: Build and push Docker image
+        if: steps.dockerfile_check.outputs.exists == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.ACR_LOGIN_SERVER }}/muskul-frontend:${{ steps.version.outputs.VERSION }}
+            ${{ secrets.ACR_LOGIN_SERVER }}/muskul-frontend:${{ github.ref == 'refs/heads/main' && 'latest' || github.ref_name }}
+          cache-from: type=registry,ref=${{ secrets.ACR_LOGIN_SERVER }}/muskul-frontend:buildcache
+          cache-to: type=registry,ref=${{ secrets.ACR_LOGIN_SERVER }}/muskul-frontend:buildcache,mode=max
+          labels: |
+            org.opencontainers.image.title=muskul-frontend
+            org.opencontainers.image.version=${{ steps.version.outputs.VERSION }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.repositoryUrl }}
+      
+      - name: Image digest
+        if: steps.dockerfile_check.outputs.exists == 'true'
+        run: echo "Image pushed with version ${{ steps.version.outputs.VERSION }}"

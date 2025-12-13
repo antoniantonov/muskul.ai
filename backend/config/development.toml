@@ -1,0 +1,36 @@
+# Development environment configuration
+
+[server]
+host = "127.0.0.1"
+port = 8080
+
+[database]
+url = "postgresql://postgres:postgres@localhost:5432/muskul_dev"
+max_connections = 5
+min_connections = 1
+
+[mongodb]
+url = "mongodb://localhost:27017"
+database = "muskul_activities_dev"
+
+[redis]
+url = "redis://localhost:6379/0"
+max_connections = 5
+
+[auth]
+jwt_secret = "development-secret-key-change-in-production"
+jwt_expiration_hours = 24
+
+[providers.strava]
+client_id = ""
+client_secret = ""
+redirect_uri = "http://localhost:8080/api/providers/strava/callback"
+
+[providers.garmin]
+client_id = ""
+client_secret = ""
+redirect_uri = "http://localhost:8080/api/providers/garmin/callback"
+
+[observability]
+otlp_endpoint = "http://localhost:4317"
+service_name = "muskul-backend-dev"

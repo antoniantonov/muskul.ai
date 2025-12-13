@@ -1,0 +1,225 @@
+version: '3.8'
+
+services:
+  # PostgreSQL 16+ - Structured data
+  postgres:
+    image: postgres:16-alpine
+    container_name: muskul-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: muskul_dev
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=en_US.UTF-8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init-scripts:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - muskul-network
+
+  # MongoDB 7.x - Raw provider data
+  mongodb:
+    image: mongo:7
+    container_name: muskul-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: mongo
+      MONGO_INITDB_ROOT_PASSWORD: mongo
+      MONGO_INITDB_DATABASE: muskul_dev
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+      - ./infra/mongodb/init-scripts:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.runCommand({ ping: 1 })"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - muskul-network
+
+  # Valkey (Redis fork) - Cache
+  valkey:
+    image: valkey/valkey:7.2-alpine
+    container_name: muskul-valkey
+    restart: unless-stopped
+    command: valkey-server --appendonly yes --requirepass valkey
+    ports:
+      - "6379:6379"
+    volumes:
+      - valkey_data:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - muskul-network
+
+  # Azure Service Bus Emulator - Message queue (development only)
+  servicebus-emulator:
+    image: mcr.microsoft.com/azure-messaging/servicebus-emulator:latest
+    container_name: muskul-servicebus-emulator
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: Y
+      SERVICEBUS_LOGGING_LEVEL: Information
+    ports:
+      - "5672:5672"   # AMQP
+    volumes:
+      - ./infra/servicebus/config.json:/ServiceBus_Emulator/ConfigFiles/Config.json:ro
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "5672"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - muskul-network
+
+  # Grafana - Observability dashboards
+  grafana:
+    image: grafana/grafana:10.2.2
+    container_name: muskul-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: false
+      GF_SERVER_ROOT_URL: http://localhost:3001
+      GF_INSTALL_PLUGINS: grafana-clock-panel
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - muskul-network
+
+  # Prometheus - Metrics collection
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: muskul-prometheus
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    volumes:
+      - prometheus_data:/prometheus
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/prometheus/rules:/etc/prometheus/rules:ro
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - muskul-network
+
+  # OpenTelemetry Collector - Telemetry aggregation
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.91.0
+    container_name: muskul-otel-collector
+    restart: unless-stopped
+    command: ["--config=/etc/otel-collector-config.yml"]
+    ports:
+      - "4317:4317"   # OTLP gRPC receiver
+      - "4318:4318"   # OTLP HTTP receiver
+      - "8888:8888"   # Prometheus metrics exposed by the collector
+      - "8889:8889"   # Prometheus exporter metrics
+    volumes:
+      - ./infra/otel/otel-collector-config.yml:/etc/otel-collector-config.yml:ro
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:13133/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - muskul-network
+
+  # Backend Service (optional - can be run with cargo run)
+  # backend:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: Dockerfile
+  #   container_name: muskul-backend
+  #   restart: unless-stopped
+  #   environment:
+  #     - DATABASE_URL=postgres://postgres:postgres@postgres:5432/muskul_dev
+  #     - MONGODB_URI=mongodb://mongo:mongo@mongodb:27017/muskul_dev
+  #     - REDIS_URL=redis://:valkey@valkey:6379
+  #     - SERVICE_BUS_CONNECTION_STRING=Endpoint=sb://servicebus-emulator:5672;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=...
+  #     - RUST_LOG=info,muskul_backend=debug
+  #     - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+  #   ports:
+  #     - "3000:3000"
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     mongodb:
+  #       condition: service_healthy
+  #     valkey:
+  #       condition: service_healthy
+  #     otel-collector:
+  #       condition: service_healthy
+  #   networks:
+  #     - muskul-network
+
+  # Frontend Service (optional - can be run with npm run dev)
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile
+  #   container_name: muskul-frontend
+  #   restart: unless-stopped
+  #   environment:
+  #     - VITE_API_URL=http://localhost:3000
+  #   ports:
+  #     - "5173:5173"
+  #   depends_on:
+  #     - backend
+  #   networks:
+  #     - muskul-network
+
+networks:
+  muskul-network:
+    driver: bridge
+    name: muskul-network
+
+volumes:
+  postgres_data:
+    name: muskul-postgres-data
+  mongodb_data:
+    name: muskul-mongodb-data
+  mongodb_config:
+    name: muskul-mongodb-config
+  valkey_data:
+    name: muskul-valkey-data
+  grafana_data:
+    name: muskul-grafana-data
+  prometheus_data:
+    name: muskul-prometheus-data

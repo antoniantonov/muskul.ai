@@ -1,0 +1,158 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base styles for accessibility */
+@layer base {
+  /* Ensure proper box-sizing */
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  /* Root element styles */
+  html {
+    font-size: 16px; /* Base font size for rem calculations */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-neutral-50 text-neutral-900 font-sans;
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+  }
+
+  /* Focus styles for keyboard navigation */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-primary-500 ring-offset-2;
+  }
+
+  /* Improve link accessibility */
+  a {
+    @apply text-primary-600 hover:text-primary-700 focus:text-primary-700;
+    text-decoration: none;
+  }
+
+  a:hover {
+    text-decoration: underline;
+  }
+
+  /* Heading styles */
+  h1 {
+    @apply text-3xl font-bold text-neutral-900;
+  }
+
+  h2 {
+    @apply text-2xl font-bold text-neutral-900;
+  }
+
+  h3 {
+    @apply text-xl font-semibold text-neutral-800;
+  }
+
+  h4 {
+    @apply text-lg font-semibold text-neutral-800;
+  }
+
+  h5,
+  h6 {
+    @apply text-base font-semibold text-neutral-700;
+  }
+
+  /* Button reset */
+  button {
+    @apply cursor-pointer;
+    font-family: inherit;
+  }
+
+  /* Form element improvements */
+  input,
+  select,
+  textarea {
+    font-family: inherit;
+    font-size: inherit;
+  }
+
+  /* Skip to main content link (for screen readers) */
+  .skip-to-main {
+    @apply absolute -top-10 left-0 bg-primary-600 text-white px-4 py-2 z-50;
+    @apply focus:top-0;
+  }
+}
+
+/* Custom component styles */
+@layer components {
+  /* Button base styles */
+  .btn {
+    @apply inline-flex items-center justify-center px-4 py-2 min-h-touch min-w-touch;
+    @apply font-medium rounded-md transition-colors duration-200;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2;
+  }
+
+  .btn-primary {
+    @apply btn bg-primary-600 text-white hover:bg-primary-700;
+    @apply focus-visible:ring-primary-500;
+  }
+
+  .btn-secondary {
+    @apply btn bg-neutral-200 text-neutral-900 hover:bg-neutral-300;
+    @apply focus-visible:ring-neutral-500;
+  }
+
+  .btn-success {
+    @apply btn bg-success-600 text-white hover:bg-success-700;
+    @apply focus-visible:ring-success-500;
+  }
+
+  .btn-error {
+    @apply btn bg-error-600 text-white hover:bg-error-700;
+    @apply focus-visible:ring-error-500;
+  }
+
+  /* Input styles */
+  .input {
+    @apply block w-full px-3 py-2 border border-neutral-300 rounded-md;
+    @apply text-neutral-900 placeholder-neutral-400;
+    @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+    @apply disabled:bg-neutral-100 disabled:cursor-not-allowed;
+  }
+
+  .input-error {
+    @apply input border-error-500 focus:ring-error-500;
+  }
+
+  /* Card styles */
+  .card {
+    @apply bg-white rounded-lg shadow-md p-6;
+  }
+
+  /* Loading spinner */
+  .spinner {
+    @apply inline-block w-8 h-8 border-4 border-neutral-200 border-t-primary-600;
+    @apply rounded-full animate-spin;
+  }
+}
+
+/* Utility classes */
+@layer utilities {
+  /* Screen reader only */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+
+  /* Ensure minimum touch target size */
+  .touch-target {
+    @apply min-h-touch min-w-touch;
+  }
+}

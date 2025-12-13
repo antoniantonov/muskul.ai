@@ -1,0 +1,143 @@
+groups:
+  - name: slo_alerts
+    interval: 30s
+    rules:
+      # Availability SLO: >99.5% (error rate must be <0.5%)
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_server_request_count_total{job="backend",http_status_code=~"5.."}[5m]))
+          /
+          sum(rate(http_server_request_count_total{job="backend"}[5m]))
+          > 0.005
+        for: 5m
+        labels:
+          severity: critical
+          slo: availability
+        annotations:
+          summary: "High error rate detected (>0.5%)"
+          description: "Error rate is {{ $value | humanizePercentage }}, exceeding SLO threshold of 0.5%. Current availability is below 99.5% target."
+
+      # Dashboard latency SLO: P95 <1s
+      - alert: HighDashboardLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_server_duration_bucket{job="backend"}[5m])) by (le)
+          ) > 1
+        for: 5m
+        labels:
+          severity: warning
+          slo: latency
+        annotations:
+          summary: "High dashboard latency detected (P95 >1s)"
+          description: "P95 latency is {{ $value }}s, exceeding SLO threshold of 1s."
+
+      # API read latency SLO: P95 <200ms
+      - alert: HighAPIReadLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_server_duration_bucket{job="backend",http_method="GET"}[5m])) by (le, http_route)
+          ) > 0.2
+        for: 5m
+        labels:
+          severity: warning
+          slo: latency
+        annotations:
+          summary: "High API read latency detected (P95 >200ms)"
+          description: "P95 read latency for {{ $labels.http_route }} is {{ $value }}s, exceeding SLO threshold of 200ms."
+
+      # API write latency SLO: P95 <500ms
+      - alert: HighAPIWriteLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_server_duration_bucket{job="backend",http_method=~"POST|PUT|DELETE|PATCH"}[5m])) by (le, http_route)
+          ) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          slo: latency
+        annotations:
+          summary: "High API write latency detected (P95 >500ms)"
+          description: "P95 write latency for {{ $labels.http_route }} is {{ $value }}s, exceeding SLO threshold of 500ms."
+
+      # Service down alert
+      - alert: ServiceDown
+        expr: up{job=~"backend|ai-agent"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          slo: availability
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "Service {{ $labels.job }} has been down for more than 1 minute."
+
+  - name: performance_alerts
+    interval: 30s
+    rules:
+      # Database query performance
+      - alert: SlowDatabaseQueries
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(db_query_duration_bucket{job="backend"}[5m])) by (le, query_type)
+          ) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Slow database queries detected"
+          description: "P95 query time for {{ $labels.query_type }} is {{ $value }}s, exceeding 1s threshold."
+
+      # Low cache hit rate
+      - alert: LowCacheHitRate
+        expr: |
+          sum(rate(cache_hits_total{job="backend"}[5m]))
+          /
+          (sum(rate(cache_hits_total{job="backend"}[5m])) + sum(rate(cache_misses_total{job="backend"}[5m])))
+          < 0.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low cache hit rate detected"
+          description: "Cache hit rate is {{ $value | humanizePercentage }}, below 50% threshold. Consider cache tuning."
+
+      # OAuth2 failures
+      - alert: HighOAuth2FailureRate
+        expr: |
+          sum(rate(oauth2_failure_total{job="backend"}[5m])) by (provider)
+          /
+          (sum(rate(oauth2_success_total{job="backend"}[5m])) by (provider) + sum(rate(oauth2_failure_total{job="backend"}[5m])) by (provider))
+          > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High OAuth2 failure rate for {{ $labels.provider }}"
+          description: "OAuth2 failure rate for {{ $labels.provider }} is {{ $value | humanizePercentage }}, exceeding 10% threshold."
+
+  - name: resource_alerts
+    interval: 30s
+    rules:
+      # Database connection pool exhaustion
+      - alert: DatabaseConnectionPoolExhaustion
+        expr: |
+          sum(db_connection_pool_active{job="backend"})
+          /
+          (sum(db_connection_pool_active{job="backend"}) + sum(db_connection_pool_idle{job="backend"}))
+          > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Database connection pool near exhaustion"
+          description: "Active connections are {{ $value | humanizePercentage }} of pool. Consider increasing pool size."
+
+      # High memory usage
+      - alert: HighMemoryUsage
+        expr: |
+          process_resident_memory_bytes{job="backend"} > 1073741824
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage detected"
+          description: "Backend memory usage is {{ $value | humanize }}B, exceeding 1GB threshold."

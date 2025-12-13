@@ -11,6 +11,7 @@
 
 ## Format: `[ID] [P?] [Story] Description`
 
+- **[@agent]**: The custom agent to which this task should be assigned, based on the previously provided routing table in implement.prompt.md and constitution.md.
 - **[P]**: Can run in parallel (different files, no dependencies)
 - **[Story]**: Which user story this task belongs to (e.g., US1, US2, US3)
 - Include exact file paths in descriptions
@@ -21,45 +22,45 @@
 
 **Purpose**: Project initialization and basic structure (establish quality, testing, UX, performance foundations)
 
-- [ ] T001 Create project structure: backend/, frontend/, etl/, ai-agent-service/, infra/, docs/
-- [ ] T002 [@rust] Initialize Rust backend project with Cargo.toml (tokio, axum, reqwest, serde, sqlx, opentelemetry dependencies)
-- [ ] T003 [@typescript] Initialize React frontend project with package.json (react 18+, typescript 5.x, vite, plotly.js, react-query, tailwind)ery, tailwind)
-- [ ] T004 [@rust] [P] Configure Rust linting with clippy in backend/.cargo/config.toml
-- [ ] T005 [@typescript] [P] Configure TypeScript eslint in frontend/.eslintrc.json (strict mode enabled)
-- [ ] T006 [@rust] [P] Setup Rust static analysis with cargo-audit in backend/Cargo.toml
-- [ ] T007 [@typescript] [P] Configure Tailwind CSS design tokens in frontend/tailwind.config.js (colors, spacing, typography for WCAG 2.1 AA)
-- [ ] T008 [@typescript] [P] Setup Vitest for frontend unit tests in frontend/vite.config.ts
-- [ ] T009 [@typescript] [P] Setup Playwright for E2E tests in frontend/playwright.config.ts
-- [ ] T010 [@rust] [P] Setup cargo-tarpaulin for Rust coverage in backend/.github/workflows/backend.yml
-- [ ] T011 [@rust] [P] Setup criterion for Rust benchmarks in backend/benches/
-- [ ] T012 Create docker-compose.yml for local development (MongoDB 7.x, PostgreSQL 16+, Valkey)
-- [ ] T013 Create .env.example with configuration template (database URLs, OAuth2 client IDs, API keys)
-- [ ] T014 [@ot] [P] Setup Grafana dashboards config in infra/grafana/dashboards/
-- [ ] T015 [@ot] [P] Setup Prometheus scrape config in infra/prometheus/prometheus.yml
-- [ ] T016 [@rust] [P] Create Dockerfile for backend service in backend/Dockerfile (multi-stage build: cargo build --release, runtime image)
-- [ ] T017 [@python] [P] Create Dockerfile for AI agent service in ai-agent-service/Dockerfile (Python base image, requirements.txt, gunicorn)
-- [ ] T018 [@python] [P] Create Dockerfile for ETL service in etl/Dockerfile (Python base image, requirements.txt for batch jobs)
-- [ ] T019 [P] Create .dockerignore files for backend/, ai-agent-service/, etl/ (exclude target/, node_modules/, .git/)
-- [ ] T020 [@pulumi] Create GitHub Actions CI workflow in .github/workflows/backend.yml (build, test, lint, coverage, docker build, push to ACR with tag 1.0.YYYYMMDD.buildnumber)
-- [ ] T021 [@pulumi] [P] Create GitHub Actions CI workflow in .github/workflows/ai-agent.yml (build, test, lint, docker build, push to ACR with tag 1.0.YYYYMMDD.buildnumber)
-- [ ] T022 [@pulumi] [P] Create GitHub Actions CI workflow in .github/workflows/etl.yml (build, test, lint, docker build, push to ACR with tag 1.0.YYYYMMDD.buildnumber)
-- [ ] T023 [@pulumi] [P] Create GitHub Actions CI workflow in .github/workflows/frontend.yml (build, test, lint, accessibility)
-- [ ] T024 [@pulumi] Create GitHub Actions CD workflow in .github/workflows/deploy-infra.yml (trigger Pulumi up on infra changes, deploy to Azure)
-- [ ] T025 [@pulumi] [P] Initialize Pulumi Python project in infra/pulumi/ (Pulumi.yaml, __main__.py, requirements.txt for azure-native)re-native)
-- [ ] T026 [@pulumi] [P] Create Pulumi stack configs in infra/pulumi/ (Pulumi.dev.yaml, Pulumi.staging.yaml, Pulumi.prod.yaml)
-- [ ] T027 [@pulumi] [P] Create Azure resource group module in infra/pulumi/modules/resource_group.py
-- [ ] T028 [@pulumi] [P] Create Azure Container Registry module in infra/pulumi/modules/acr.py (ACR for storing container images)
-- [ ] T029 [@pulumi] [P] Create Azure Storage Account module in infra/pulumi/modules/storage.py (blob storage for file import landing zone)
-- [ ] T030 [@pulumi] [P] Create Azure Cosmos DB for MongoDB module in infra/pulumi/modules/cosmos_mongo.py (MongoDB-compatible API)
-- [ ] T031 [@pulumi] [P] Create Azure Database for PostgreSQL module in infra/pulumi/modules/postgres.py (flexible server, VNet integration)
-- [ ] T032 [@pulumi] [P] Create Azure Cache for Redis module in infra/pulumi/modules/redis.py (Valkey-compatible Redis)
-- [ ] T033 [@pulumi] [P] Create Azure Service Bus module in infra/pulumi/modules/service_bus.py (namespace, queues for etl, enrichment, ai-parsing, ingestion, import jobs)
-- [ ] T034 [@pulumi] [P] Create Azure Container Apps module for backend in infra/pulumi/modules/container_app_backend.py (scale rules, ingress, environment variables)
-- [ ] T035 [@pulumi] [P] Create Azure Container Apps module for AI agent in infra/pulumi/modules/container_app_ai_agent.py
-- [ ] T036 [@pulumi] [P] Create Azure Container Apps module for ETL jobs in infra/pulumi/modules/container_app_etl.py (Service Bus queue subscriber, scale-to-zero)
-- [ ] T037 [@pulumi] [P] Create Azure Virtual Network module in infra/pulumi/modules/vnet.py (subnets for Container Apps, PostgreSQL, private endpoints)
-- [ ] T038 [@pulumi] [P] Create Azure Application Insights module in infra/pulumi/modules/app_insights.py (monitoring, OpenTelemetry ingestion)
-- [ ] T039 [@pulumi] Create main Pulumi program in infra/pulumi/__main__.py (orchestrate all modules, export endpoints/connection strings)
+- [X] T001 Create project structure: backend/, frontend/, etl/, ai-agent-service/, infra/, docs/
+- [X] T002 [@rust] Initialize Rust backend project with Cargo.toml (tokio, axum, reqwest, serde, sqlx, opentelemetry dependencies)
+- [X] T003 [@typescript] Initialize React frontend project with package.json (react 18+, typescript 5.x, vite, plotly.js, react-query, tailwind)ery, tailwind)
+- [X] T004 [@rust] [P] Configure Rust linting with clippy in backend/.cargo/config.toml
+- [X] T005 [@typescript] [P] Configure TypeScript eslint in frontend/.eslintrc.json (strict mode enabled)
+- [X] T006 [@rust] [P] Setup Rust static analysis with cargo-audit in backend/Cargo.toml
+- [X] T007 [@typescript] [P] Configure Tailwind CSS design tokens in frontend/tailwind.config.js (colors, spacing, typography for WCAG 2.1 AA)
+- [X] T008 [@typescript] [P] Setup Vitest for frontend unit tests in frontend/vite.config.ts
+- [X] T009 [@typescript] [P] Setup Playwright for E2E tests in frontend/playwright.config.ts
+- [X] T010 [@rust] [P] Setup cargo-tarpaulin for Rust coverage in backend/.github/workflows/backend.yml
+- [X] T011 [@rust] [P] Setup criterion for Rust benchmarks in backend/benches/
+- [X] T012 Create docker-compose.yml for local development (MongoDB 7.x, PostgreSQL 16+, Valkey)
+- [X] T013 Create .env.example with configuration template (database URLs, OAuth2 client IDs, API keys)
+- [X] T014 [@ot] [P] Setup Grafana dashboards config in infra/grafana/dashboards/
+- [X] T015 [@ot] [P] Setup Prometheus scrape config in infra/prometheus/prometheus.yml
+- [X] T016 [@rust] [P] Create Dockerfile for backend service in backend/Dockerfile (multi-stage build: cargo build --release, runtime image)
+- [X] T017 [@python] [P] Create Dockerfile for AI agent service in ai-agent-service/Dockerfile (Python base image, requirements.txt, gunicorn)
+- [X] T018 [@python] [P] Create Dockerfile for ETL service in etl/Dockerfile (Python base image, requirements.txt for batch jobs)
+- [X] T019 [P] Create .dockerignore files for backend/, ai-agent-service/, etl/ (exclude target/, node_modules/, .git/)
+- [X] T020 [@pulumi] Create GitHub Actions CI workflow in .github/workflows/backend.yml (build, test, lint, coverage, docker build, push to ACR with tag 1.0.YYYYMMDD.buildnumber)
+- [X] T021 [@pulumi] [P] Create GitHub Actions CI workflow in .github/workflows/ai-agent.yml (build, test, lint, docker build, push to ACR with tag 1.0.YYYYMMDD.buildnumber)
+- [X] T022 [@pulumi] [P] Create GitHub Actions CI workflow in .github/workflows/etl.yml (build, test, lint, docker build, push to ACR with tag 1.0.YYYYMMDD.buildnumber)
+- [X] T023 [@pulumi] [P] Create GitHub Actions CI workflow in .github/workflows/frontend.yml (build, test, lint, accessibility)
+- [X] T024 [@pulumi] Create GitHub Actions CD workflow in .github/workflows/infra.yml (trigger Pulumi up on infra changes, deploy to Azure)
+- [X] T025 [@pulumi] [P] Initialize Pulumi Python project in infra/pulumi/ (Pulumi.yaml, __main__.py, requirements.txt for azure-native)
+- [X] T026 [@pulumi] [P] Create Pulumi stack configs in infra/pulumi/ (Pulumi.dev.yaml, Pulumi.staging.yaml, Pulumi.prod.yaml)
+- [X] T027 [@pulumi] [P] Create Azure resource group module in infra/pulumi/modules/resource_group.py
+- [X] T028 [@pulumi] [P] Create Azure Container Registry module in infra/pulumi/modules/acr.py (ACR for storing container images)
+- [X] T029 [@pulumi] [P] Create Azure Storage Account module in infra/pulumi/modules/storage.py (blob storage for file import landing zone)
+- [X] T030 [@pulumi] [P] Create Azure Cosmos DB for MongoDB module in infra/pulumi/modules/cosmos_mongo.py (MongoDB-compatible API)
+- [X] T031 [@pulumi] [P] Create Azure Database for PostgreSQL module in infra/pulumi/modules/postgres.py (flexible server, VNet integration)
+- [X] T032 [@pulumi] [P] Create Azure Cache for Redis module in infra/pulumi/modules/redis.py (Valkey-compatible Redis)
+- [X] T033 [@pulumi] [P] Create Azure Service Bus module in infra/pulumi/modules/service_bus.py (namespace, queues for etl, enrichment, ai-parsing, ingestion, import jobs)
+- [X] T034 [@pulumi] [P] Create Azure Container Apps module for backend in infra/pulumi/modules/container_app_backend.py (scale rules, ingress, environment variables)
+- [X] T035 [@pulumi] [P] Create Azure Container Apps module for AI agent in infra/pulumi/modules/container_app_ai_agent.py
+- [X] T036 [@pulumi] [P] Create Azure Container Apps module for ETL jobs in infra/pulumi/modules/container_app_etl.py (Service Bus queue subscriber, scale-to-zero)
+- [X] T037 [@pulumi] [P] Create Azure Virtual Network module in infra/pulumi/modules/vnet.py (subnets for Container Apps, PostgreSQL, private endpoints)
+- [X] T038 [@pulumi] [P] Create Azure Application Insights module in infra/pulumi/modules/app_insights.py (monitoring, OpenTelemetry ingestion)
+- [X] T039 [@pulumi] Create main Pulumi program in infra/pulumi/__main__.py (orchestrate all modules, export endpoints/connection strings)
 
 ---
 
